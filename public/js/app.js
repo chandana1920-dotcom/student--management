@@ -2,6 +2,7 @@
 let currentUser = null;
 let currentPage = 1;
 let totalPages = 1;
+let authToken = null;
 
 // DOM elements
 const loginContainer = document.getElementById('loginContainer');
@@ -9,6 +10,23 @@ const dashboardContainer = document.getElementById('dashboardContainer');
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
 const editModal = document.getElementById('editModal');
+
+// Helper function to make authenticated API requests
+async function authenticatedFetch(url, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+    
+    if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+    }
+    
+    return fetch(url, {
+        ...options,
+        headers
+    });
+}
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
@@ -110,6 +128,7 @@ async function handleLogin(e) {
         
         if (response.ok) {
             currentUser = data.user;
+            authToken = data.token; // Store JWT token
             showMessage('Login successful!', 'success');
             showDashboard();
         } else {
@@ -124,10 +143,26 @@ async function handleLogin(e) {
 async function handleRegister(e) {
     e.preventDefault();
     
-    const username = document.getElementById('registerUsername').value;
-    const email = document.getElementById('registerEmail').value;
+    const username = document.getElementById('registerUsername').value.trim();
+    const email = document.getElementById('registerEmail').value.trim();
     const password = document.getElementById('registerPassword').value;
     const role = document.getElementById('registerRole').value;
+    
+    // Client-side validation
+    if (!username || username.length < 3) {
+        showMessage('Username must be at least 3 characters long', 'error');
+        return;
+    }
+    
+    if (!email || !email.includes('@')) {
+        showMessage('Please enter a valid email address', 'error');
+        return;
+    }
+    
+    if (!password || password.length < 6) {
+        showMessage('Password must be at least 6 characters long', 'error');
+        return;
+    }
     
     try {
         const response = await fetch('/api/auth/register', {
@@ -141,11 +176,15 @@ async function handleRegister(e) {
         const data = await response.json();
         
         if (response.ok) {
-            showMessage('Registration successful! Please login.', 'success');
+            showMessage(`Registration successful! Your account ${email} has been created. Please login.`, 'success');
             showTab('login');
             registerForm.reset();
         } else {
-            showMessage(data.message || 'Registration failed', 'error');
+            if (data.message && data.message.includes('already exists')) {
+                showMessage('This email or username is already registered. Please use a different email.', 'error');
+            } else {
+                showMessage(data.message || 'Registration failed', 'error');
+            }
         }
     } catch (error) {
         showMessage('Network error. Please try again.', 'error');
@@ -157,6 +196,7 @@ async function logout() {
     try {
         await fetch('/api/auth/logout', { method: 'POST' });
         currentUser = null;
+        authToken = null; // Clear JWT token
         showLogin();
         showMessage('Logged out successfully', 'info');
     } catch (error) {
@@ -198,7 +238,7 @@ function showSection(section) {
 // Load dashboard statistics
 async function loadDashboardStats() {
     try {
-        const response = await fetch('/api/students/stats/overview');
+        const response = await authenticatedFetch('/api/students/stats/overview');
         const data = await response.json();
         
         if (response.ok) {
@@ -223,7 +263,7 @@ async function loadStudents(page = 1, search = '', course = '', status = '') {
             status: status
         });
         
-        const response = await fetch(`/api/students?${params}`);
+        const response = await authenticatedFetch(`/api/students?${params}`);
         const data = await response.json();
         
         if (response.ok) {
@@ -362,11 +402,8 @@ async function handleAddStudent(e) {
     console.log('Sending student data:', studentData);
     
     try {
-        const response = await fetch('/api/students', {
+        const response = await authenticatedFetch('/api/students', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
             body: JSON.stringify(studentData)
         });
         

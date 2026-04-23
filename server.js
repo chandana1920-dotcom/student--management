@@ -4,7 +4,7 @@ const cors = require('cors');
 const session = require('express-session');
 require('dotenv').config();
 
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth-fixed');
 const studentRoutes = require('./routes/students-fixed');
 
 const app = express();

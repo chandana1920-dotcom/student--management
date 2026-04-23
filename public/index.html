@@ -17,20 +17,6 @@
                 <button class="tab-btn" onclick="showTab('register')">Register</button>
             </div>
             
-            <!-- Login Credentials Reference -->
-            <div class="credentials-reference" style="background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #667eea;">
-                <h4 style="margin: 0 0 10px 0; color: #333; font-size: 14px;">🔑 Test Login Credentials:</h4>
-                <div style="font-size: 12px; color: #666; line-height: 1.4;">
-                    <strong>Students:</strong><br>
-                    • john@student.com / student123<br>
-                    • jane@student.com / student123<br>
-                    <strong>Teacher:</strong><br>
-                    • mike@teacher.com / teacher123<br>
-                    <strong>Admin:</strong><br>
-                    • admin@example.com / admin123
-                </div>
-            </div>
-            
             <!-- Login Form -->
             <form id="loginForm" class="auth-form">
                 <div class="form-group">
@@ -47,12 +33,12 @@
             <!-- Register Form -->
             <form id="registerForm" class="auth-form" style="display: none;">
                 <div class="form-group">
-                    <label for="registerUsername">Username</label>
-                    <input type="text" id="registerUsername" required>
+                    <label for="registerUsername">Unique Username</label>
+                    <input type="text" id="registerUsername" placeholder="Choose a unique username (e.g., johnsmith)" required>
                 </div>
                 <div class="form-group">
-                    <label for="registerEmail">Email</label>
-                    <input type="email" id="registerEmail" required>
+                    <label for="registerEmail">Personal Email Address</label>
+                    <input type="email" id="registerEmail" placeholder="Enter your personal email (e.g., john@gmail.com)" required>
                 </div>
                 <div class="form-group">
                     <label for="registerPassword">Password</label>

@@ -1,14 +1,26 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 
-// Middleware to check authentication
+// Middleware to check authentication using JWT
 const isAuthenticated = (req, res, next) => {
-    if (req.session.user) {
-        console.log('User authenticated:', req.session.user.username, 'Role:', req.session.user.role);
+    try {
+        // Get token from Authorization header or session
+        const token = req.headers.authorization?.split(' ')[1] || req.session.token;
+        
+        if (!token) {
+            console.log('No token provided');
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        // Verify JWT token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('User authenticated:', decoded.username, 'Role:', decoded.role);
+        req.user = decoded;
         next();
-    } else {
-        console.log('Authentication required');
+    } catch (error) {
+        console.log('Invalid token:', error.message);
         res.status(401).json({ message: 'Authentication required' });
     }
 };
