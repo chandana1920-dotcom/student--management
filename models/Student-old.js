@@ -79,6 +79,10 @@ const studentSchema = new mongoose.Schema({
     }
 });
 
-// NO MIDDLEWARE - NO VIRTUAL FUNCTIONS - CLEAN MODEL
+
+// Virtual for full name
+studentSchema.virtual('fullName').get(function() {
+    return `${this.firstName} ${this.lastName}`;
+});
 
 module.exports = mongoose.model('Student', studentSchema);

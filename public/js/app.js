@@ -308,21 +308,58 @@ function filterStudents() {
 async function handleAddStudent(e) {
     e.preventDefault();
     
-    const formData = new FormData(e.target);
+    // Get form values
+    const firstName = document.getElementById('firstName').value;
+    const lastName = document.getElementById('lastName').value;
+    const studentId = document.getElementById('studentId').value;
+    const email = document.getElementById('email').value;
+    const dateOfBirth = document.getElementById('dateOfBirth').value;
+    const gender = document.getElementById('gender').value;
+    const phone = document.getElementById('phone').value;
+    const course = document.getElementById('course').value;
+    const yearSelect = document.getElementById('year');
+    const gpa = document.getElementById('gpa').value;
+    const address = document.getElementById('address').value;
+    const status = document.getElementById('status').value;
+    
+    // Extract numeric year from select option
+    let year = 1;
+    if (yearSelect.value) {
+        year = parseInt(yearSelect.value);
+        if (isNaN(year)) {
+            // If the select contains text like "4th Year", extract the number
+            const match = yearSelect.value.match(/\d+/);
+            year = match ? parseInt(match[0]) : 1;
+        }
+    }
+    
+    // Create proper address object
+    let addressObj = {};
+    if (address && address.trim()) {
+        addressObj = {
+            street: address,
+            city: address,
+            state: '',
+            zipCode: ''
+        };
+    }
+    
     const studentData = {
-        firstName: document.getElementById('firstName').value,
-        lastName: document.getElementById('lastName').value,
-        studentId: document.getElementById('studentId').value,
-        email: document.getElementById('email').value,
-        dateOfBirth: document.getElementById('dateOfBirth').value,
-        gender: document.getElementById('gender').value,
-        phone: document.getElementById('phone').value,
-        course: document.getElementById('course').value,
-        year: parseInt(document.getElementById('year').value),
-        gpa: parseFloat(document.getElementById('gpa').value) || 0,
-        address: document.getElementById('address').value,
-        status: document.getElementById('status').value
+        firstName,
+        lastName,
+        studentId,
+        email,
+        dateOfBirth,
+        gender,
+        phone,
+        course,
+        year,
+        gpa: parseFloat(gpa) || 0,
+        address: addressObj,
+        status
     };
+    
+    console.log('Sending student data:', studentData);
     
     try {
         const response = await fetch('/api/students', {

@@ -1,5 +1,5 @@
 const express = require('express');
-const Student = require('../models/Student');
+const mongoose = require('mongoose');
 const router = express.Router();
 
 // Middleware to check authentication
@@ -44,12 +44,16 @@ router.get('/', isAuthenticated, async (req, res) => {
             query.status = status;
         }
 
-        const students = await Student.find(query)
+        // Use direct MongoDB connection
+        const db = mongoose.connection.db;
+        const students = await db.collection('students')
+            .find(query)
             .sort({ createdAt: -1 })
             .skip(skip)
-            .limit(limit);
+            .limit(limit)
+            .toArray();
             
-        const total = await Student.countDocuments(query);
+        const total = await db.collection('students').countDocuments(query);
         
         res.json({
             students,
@@ -66,26 +70,10 @@ router.get('/', isAuthenticated, async (req, res) => {
     }
 });
 
-// Get single student by ID
-router.get('/:id', isAuthenticated, async (req, res) => {
-    try {
-        const student = await Student.findById(req.params.id);
-        
-        if (!student) {
-            return res.status(404).json({ message: 'Student not found' });
-        }
-        
-        res.json(student);
-    } catch (error) {
-        console.error('Error fetching student:', error);
-        res.status(500).json({ message: 'Error fetching student' });
-    }
-});
-
-// Create new student
+// Create new student - FIXED VERSION
 router.post('/', isAuthenticated, async (req, res) => {
     try {
-        console.log('Student creation started');
+        console.log('Student creation started - FIXED VERSION');
         console.log('Request body:', req.body);
         
         const studentData = req.body;
@@ -102,8 +90,12 @@ router.post('/', isAuthenticated, async (req, res) => {
         }
         
         console.log('Checking for existing student...');
+        
+        // Use direct MongoDB connection
+        const db = mongoose.connection.db;
+        
         // Check if student ID or email already exists
-        const existingStudent = await Student.findOne({
+        const existingStudent = await db.collection('students').findOne({
             $or: [
                 { studentId: studentData.studentId },
                 { email: studentData.email }
@@ -118,13 +110,29 @@ router.post('/', isAuthenticated, async (req, res) => {
         }
         
         console.log('Creating new student...');
-        const student = new Student(studentData);
-        await student.save();
         
-        console.log('Student created successfully:', student._id);
+        // Prepare student document with proper structure
+        const studentDocument = {
+            ...studentData,
+            dateOfBirth: new Date(studentData.dateOfBirth),
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            enrollmentDate: new Date(),
+            gpa: parseFloat(studentData.gpa) || 0,
+            year: parseInt(studentData.year)
+        };
+        
+        // Insert directly into MongoDB
+        const result = await db.collection('students').insertOne(studentDocument);
+        
+        console.log('Student created successfully:', result.insertedId);
+        
+        // Return the created student
+        const createdStudent = await db.collection('students').findOne({ _id: result.insertedId });
+        
         res.status(201).json({
             message: 'Student created successfully',
-            student
+            student: createdStudent
         });
     } catch (error) {
         console.error('Error creating student:', error);
@@ -133,14 +141,32 @@ router.post('/', isAuthenticated, async (req, res) => {
     }
 });
 
+// Get single student by ID
+router.get('/:id', isAuthenticated, async (req, res) => {
+    try {
+        const db = mongoose.connection.db;
+        const student = await db.collection('students').findOne({ _id: new mongoose.Types.ObjectId(req.params.id) });
+        
+        if (!student) {
+            return res.status(404).json({ message: 'Student not found' });
+        }
+        
+        res.json(student);
+    } catch (error) {
+        console.error('Error fetching student:', error);
+        res.status(500).json({ message: 'Error fetching student' });
+    }
+});
+
 // Update student
 router.put('/:id', isAuthenticated, async (req, res) => {
     try {
         const studentData = req.body;
+        const db = mongoose.connection.db;
         
         // Check if student ID or email already exists (excluding current student)
-        const existingStudent = await Student.findOne({
-            _id: { $ne: req.params.id },
+        const existingStudent = await db.collection('students').findOne({
+            _id: { $ne: new mongoose.Types.ObjectId(req.params.id) },
             $or: [
                 { studentId: studentData.studentId },
                 { email: studentData.email }
@@ -153,19 +179,29 @@ router.put('/:id', isAuthenticated, async (req, res) => {
             });
         }
         
-        const student = await Student.findByIdAndUpdate(
-            req.params.id,
-            studentData,
-            { new: true, runValidators: true }
+        // Update student
+        const updateData = {
+            ...studentData,
+            updatedAt: new Date(),
+            dateOfBirth: new Date(studentData.dateOfBirth),
+            gpa: parseFloat(studentData.gpa) || 0,
+            year: parseInt(studentData.year)
+        };
+        
+        const result = await db.collection('students').updateOne(
+            { _id: new mongoose.Types.ObjectId(req.params.id) },
+            { $set: updateData }
         );
         
-        if (!student) {
+        if (result.matchedCount === 0) {
             return res.status(404).json({ message: 'Student not found' });
         }
         
+        const updatedStudent = await db.collection('students').findOne({ _id: new mongoose.Types.ObjectId(req.params.id) });
+        
         res.json({
             message: 'Student updated successfully',
-            student
+            student: updatedStudent
         });
     } catch (error) {
         console.error('Error updating student:', error);
@@ -176,9 +212,10 @@ router.put('/:id', isAuthenticated, async (req, res) => {
 // Delete student
 router.delete('/:id', isAuthenticated, async (req, res) => {
     try {
-        const student = await Student.findByIdAndDelete(req.params.id);
+        const db = mongoose.connection.db;
+        const result = await db.collection('students').deleteOne({ _id: new mongoose.Types.ObjectId(req.params.id) });
         
-        if (!student) {
+        if (result.deletedCount === 0) {
             return res.status(404).json({ message: 'Student not found' });
         }
         
@@ -192,22 +229,26 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
 // Get statistics
 router.get('/stats/overview', isAuthenticated, async (req, res) => {
     try {
-        const totalStudents = await Student.countDocuments();
-        const activeStudents = await Student.countDocuments({ status: 'Active' });
-        const graduatedStudents = await Student.countDocuments({ status: 'Graduated' });
-        const suspendedStudents = await Student.countDocuments({ status: 'Suspended' });
+        const db = mongoose.connection.db;
+        
+        const totalStudents = await db.collection('students').countDocuments();
+        const activeStudents = await db.collection('students').countDocuments({ status: 'Active' });
+        const graduatedStudents = await db.collection('students').countDocuments({ status: 'Graduated' });
+        const suspendedStudents = await db.collection('students').countDocuments({ status: 'Suspended' });
         
         // Course distribution
-        const courseDistribution = await Student.aggregate([
+        const coursePipeline = [
             { $group: { _id: '$course', count: { $sum: 1 } } },
             { $sort: { count: -1 } }
-        ]);
+        ];
+        const courseDistribution = await db.collection('students').aggregate(coursePipeline).toArray();
         
         // Year distribution
-        const yearDistribution = await Student.aggregate([
+        const yearPipeline = [
             { $group: { _id: '$year', count: { $sum: 1 } } },
             { $sort: { _id: 1 } }
-        ]);
+        ];
+        const yearDistribution = await db.collection('students').aggregate(yearPipeline).toArray();
         
         res.json({
             totalStudents,

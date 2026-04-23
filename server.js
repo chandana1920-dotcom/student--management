@@ -5,7 +5,7 @@ const session = require('express-session');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
-const studentRoutes = require('./routes/students');
+const studentRoutes = require('./routes/students-fixed');
 
 const app = express();
 
